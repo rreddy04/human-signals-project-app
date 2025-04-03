@@ -1,0 +1,3 @@
+[submodule "FoodDetector/libraries/jlibrosa"]
+	path = FoodDetector/libraries/jlibrosa
+	url = https://github.com/Subtitle-Synchronizer/jlibrosa.git
