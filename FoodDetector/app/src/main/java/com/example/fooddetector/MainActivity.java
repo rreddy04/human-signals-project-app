@@ -177,7 +177,7 @@ public class MainActivity extends AppCompatActivity {
             dispatcher.addAudioProcessor(new AudioProcessor() {
                 @Override
                 public void processingFinished() {
-                    // This is called when no more data is available.
+                    // TODO: control what happens when processing is finished
                 }
 
                 @Override
