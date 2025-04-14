@@ -7,10 +7,9 @@ pluginManagement {
                 includeGroupByRegex("androidx.*")
             }
         }
+
         mavenCentral()
         gradlePluginPortal()
-        jcenter()
-
     }
 }
 
@@ -23,6 +22,7 @@ dependencyResolutionManagement {
             name = "TarsosDSP repository"
             url = uri("https://mvn.0110.be/releases")
         }
+        maven { url 'https://jitpack.io' }
     }
 }
 
