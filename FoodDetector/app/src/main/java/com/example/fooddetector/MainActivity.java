@@ -280,6 +280,11 @@ public class MainActivity extends AppCompatActivity {
 
     private void makePredictionWithModel(float[] featureVector) {
         // Convert float[] to Tensor
+        if (featureVector.length != 240000) {
+            Log.e(TAG, "Unexpected feature vector size: " + featureVector.length);
+            return;
+        }
+
         long[] shape = new long[]{1, 240000};
         Tensor inputTensor = Tensor.fromBlob(featureVector, shape);
 
