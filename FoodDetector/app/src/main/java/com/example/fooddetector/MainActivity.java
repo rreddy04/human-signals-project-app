@@ -9,6 +9,7 @@ import android.os.Bundle;
 //import android.os.Handler;
 //import android.os.Looper;
 import android.util.Log;
+import android.widget.TextView;
 
 import androidx.activity.EdgeToEdge;
 import androidx.activity.result.ActivityResultLauncher;
@@ -57,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isRecording = false;
 
     private Module model;
+    private TextView label;
 
     // Audio recording parameters
     private static final int SAMPLE_RATE = 48000; // Sample rate in Hz
@@ -169,6 +171,9 @@ public class MainActivity extends AppCompatActivity {
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
 
+        label = findViewById(R.id.label);
+        label.setText("Initialized, prediction goes here");
+
         ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.main), (v, insets) -> {
             Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom);
@@ -273,7 +278,7 @@ public class MainActivity extends AppCompatActivity {
         return floatArray;
     }
 
-    private String makePredictionWithModel(float[] featureVector) {
+    private void makePredictionWithModel(float[] featureVector) {
         // Convert float[] to Tensor
         long[] shape = new long[]{1, 240000};
         Tensor inputTensor = Tensor.fromBlob(featureVector, shape);
@@ -293,9 +298,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         // Define class labels (replace with your actual labels)
-        String[] classLabels = {"Food", "Not Food"};
+        String[] classLabels = {"Carrot", "PB", "Sandwich", "Rice", "Fries", "Grapes", "Banana", "Apple", "Chips", "Popcorn"};
 
         // Return the predicted class
-        return "Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")";
+        label.setText("Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")");
     }
 }
