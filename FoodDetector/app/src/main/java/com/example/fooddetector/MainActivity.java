@@ -244,7 +244,6 @@ public class MainActivity extends AppCompatActivity {
 
     private void makePredictionWithModel(float[] featureVector) {
         // Convert float[] to Tensor
-        Log.i("prediction", "thinking");
 
         if (featureVector.length != 240000) {
             Log.e(TAG, "Unexpected feature vector size: " + featureVector.length);
@@ -256,17 +255,15 @@ public class MainActivity extends AppCompatActivity {
         Tensor outputTensor = null;
 
         // Run the model
-        Log.i("prediction", "ambatu predict");
         try {
             Log.i("prediction", "Input tensor shape: " + Arrays.toString(inputTensor.shape()));
             outputTensor = model.forward(IValue.from(inputTensor)).toTensor();
-            Log.i("prediction", "got output");
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
         float[] scores = outputTensor.getDataAsFloatArray();
-        Log.i("prediction", Arrays.toString(scores));
+        Log.i("prediction", "Output tensor: " + Arrays.toString(scores));
 
 
         // Find the predicted class (the one with the highest score)
@@ -281,9 +278,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Define class labels (replace with your actual labels)
         String[] classLabels = {"Carrot", "PB", "Sandwich", "Rice", "Fries", "Grapes", "Banana", "Apple", "Chips", "Popcorn"};
-
+        String ret = "Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")";
         // Return the predicted class
-        label.setText("Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")");
-        Log.i("prediction", "Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")");
+        label.setText(ret);
+        label.invalidate();
+        label.requestLayout();
+        Log.i("prediction", ret);
     }
 }
