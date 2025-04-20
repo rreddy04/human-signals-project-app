@@ -1,7 +1,9 @@
 package com.example.fooddetector;
 
 import android.Manifest;
+import android.content.Context;
 import android.content.pm.PackageManager;
+import android.content.res.AssetManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -20,11 +22,16 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import org.pytorch.Device;
 import org.pytorch.IValue;
 import org.pytorch.LiteModuleLoader;
 import org.pytorch.Module;
 import org.pytorch.Tensor;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 //import java.util.ArrayList;
@@ -55,6 +62,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String MODEL_PATH = "modelcnn.ptl";
     private AudioRecord audioRecord;
     private byte[] audioData;
+    private byte[] finalAudioData;
     private boolean isRecording = false;
 
     private Module model;
@@ -81,87 +89,43 @@ public class MainActivity extends AppCompatActivity {
             });
 
 
-
-//    public class ExtractedFeatures {
-//        private final double[][] mfccs;
-//        private final double[][] contrast;
-//        private final double[][] chroma;
-//        private final double[] zcr;
-//        private final double[] rms;
-//        private final double[] rolloff;
-//        private final double[] bandwidth;
-//        private final double[] flatness;
-//
-//        public ExtractedFeatures(double[][] mfccs, double[][] contrast, double[][] chroma, double[] zcr, double[] rms, double[] rolloff, double[] bandwidth, double[] flatness) {
-//            this.mfccs = mfccs;
-//            this.contrast = contrast;
-//            this.chroma = chroma;
-//            this.zcr = zcr;
-//            this.rms = rms;
-//            this.rolloff = rolloff;
-//            this.bandwidth = bandwidth;
-//            this.flatness = flatness;
-//        }
-//
-//        public double[][] getMfccs() {
-//            return mfccs;
-//        }
-//
-//        public double[][] getContrast() {
-//            return contrast;
-//        }
-//
-//        public double[][] getChroma() {
-//            return chroma;
-//        }
-//
-//        public double[] getZcr() {
-//            return zcr;
-//        }
-//
-//        public double[] getRms() {
-//            return rms;
-//        }
-//
-//        public double[] getRolloff() {
-//            return rolloff;
-//        }
-//
-//        public double[] getBandwidth() {
-//            return bandwidth;
-//        }
-//
-//        public double[] getFlatness() {
-//            return flatness;
-//        }
-//
-//        @Override
-//        public String toString() {
-//            return "ExtractedFeatures{" +
-//                    "mfccs=" + Arrays.deepToString(mfccs) +
-//                    ", contrast=" + Arrays.deepToString(contrast) +
-//                    ", chroma=" + Arrays.deepToString(chroma) +
-//                    ", zcr=" + Arrays.toString(zcr) +
-//                    ", rms=" + Arrays.toString(rms) +
-//                    ", rolloff=" + Arrays.toString(rolloff) +
-//                    ", bandwidth=" + Arrays.toString(bandwidth) +
-//                    ", flatness=" + Arrays.toString(flatness) +
-//                    '}';
-//        }
-//    }
-
-
     // Executor for feature extraction and prediction
     private final ExecutorService predictionExecutor = Executors.newSingleThreadExecutor();
-//    private ExecutorService featureExtractionExecutor = Executors.newSingleThreadExecutor();
-//    private Handler mainHandler = new Handler(Looper.getMainLooper());
+
+    public static String assetFilePath(Context context, String assetName) throws IOException {
+        File file = new File(context.getFilesDir(), assetName);
+        if (file.exists() && file.length() > 0) {
+            return file.getAbsolutePath();
+        }
+
+        try (InputStream is = context.getAssets().open(assetName);
+             FileOutputStream os = new FileOutputStream(file)) {
+
+            byte[] buffer = new byte[1024];
+            int read;
+            while ((read = is.read(buffer)) != -1) {
+                os.write(buffer, 0, read);
+            }
+            os.flush();
+        }
+
+        return file.getAbsolutePath();
+    }
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        String modelPath = null;
+        try {
+            modelPath = assetFilePath(this, MODEL_PATH);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        Log.i("modelload", modelPath);
 
         try {
             if (model == null) {
-                model = LiteModuleLoader.load(MODEL_PATH);
+                model = LiteModuleLoader.load(modelPath);
             }
         } catch (Exception e) {
             Log.e(TAG, "Error loading model!", e);
@@ -170,6 +134,7 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         EdgeToEdge.enable(this);
         setContentView(R.layout.activity_main);
+
 
         label = findViewById(R.id.label);
         label.setText("Initialized, prediction goes here");
@@ -221,7 +186,6 @@ public class MainActivity extends AppCompatActivity {
         int recordingDurationMillis = 5000;
         int maxBufferSize = SAMPLE_RATE * 2 * (recordingDurationMillis / 1000); // 2 bytes per sample (16-bit),
         audioData = new byte[maxBufferSize];
-
         // Start recording
         audioRecord.startRecording();
         isRecording = true;
@@ -239,8 +203,9 @@ public class MainActivity extends AppCompatActivity {
                     currentPosition += result;
                     if (currentPosition >= maxBufferSize) {
                         // Process 5 seconds of audio
-                        byte[] finalAudioData = Arrays.copyOf(fiveSecondsAudioData, maxBufferSize);
+                        finalAudioData = Arrays.copyOf(fiveSecondsAudioData, maxBufferSize);
                         currentPosition = 0;
+                        Log.d(TAG, "Finished reading audio data.");
                         predictionExecutor.submit(() -> processAudioChunk(finalAudioData));
                     }
 
@@ -248,13 +213,12 @@ public class MainActivity extends AppCompatActivity {
                     Log.e(TAG, "Error reading audio data, code: " + result);
                 }
             }
-            Log.d(TAG, "Finished reading audio data.");
         });
         recordingThread.start();
     }
 
     private void processAudioChunk(byte[] audioChunk) {
-        Log.d(TAG, "Processing new audio chunk.");
+        Log.d("prediction", "Processing new audio chunk.");
         makePredictionWithModel(convertByteArrayToFloatArray(audioChunk));
     }
 
@@ -280,17 +244,30 @@ public class MainActivity extends AppCompatActivity {
 
     private void makePredictionWithModel(float[] featureVector) {
         // Convert float[] to Tensor
+        Log.i("prediction", "thinking");
+
         if (featureVector.length != 240000) {
             Log.e(TAG, "Unexpected feature vector size: " + featureVector.length);
             return;
         }
 
-        long[] shape = new long[]{1, 240000};
+        long[] shape = new long[]{1, 1, 240000};
         Tensor inputTensor = Tensor.fromBlob(featureVector, shape);
+        Tensor outputTensor = null;
 
         // Run the model
-        Tensor outputTensor = model.forward(IValue.from(inputTensor)).toTensor();
+        Log.i("prediction", "ambatu predict");
+        try {
+            Log.i("prediction", "Input tensor shape: " + Arrays.toString(inputTensor.shape()));
+            outputTensor = model.forward(IValue.from(inputTensor)).toTensor();
+            Log.i("prediction", "got output");
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
         float[] scores = outputTensor.getDataAsFloatArray();
+        Log.i("prediction", Arrays.toString(scores));
+
 
         // Find the predicted class (the one with the highest score)
         int predictedClass = 0;
@@ -307,5 +284,6 @@ public class MainActivity extends AppCompatActivity {
 
         // Return the predicted class
         label.setText("Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")");
+        Log.i("prediction", "Prediction: " + classLabels[predictedClass] + " (Score: " + maxScore + ")");
     }
 }
